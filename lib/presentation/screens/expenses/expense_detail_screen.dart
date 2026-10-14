@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_time_utils.dart';
 import '../../../data/models/expense_model.dart';
+import '../../../data/models/member_model.dart';
 import '../../providers/app_state_provider.dart';
 import '../../providers/expenses_provider.dart';
 import '../../widgets/category_icon.dart';

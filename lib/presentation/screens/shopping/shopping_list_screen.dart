@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../data/models/member_model.dart';
 import '../../../data/models/shopping_item_model.dart';
 import '../../providers/app_state_provider.dart';
 import '../../providers/shopping_provider.dart';
