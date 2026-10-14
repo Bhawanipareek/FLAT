@@ -40,14 +40,14 @@ jobs:
           set +e
           flutter build apk --debug -v > build_debug.log 2>&1
           BUILD_STATUS=$?
-          if [ $BUILD_STATUS -ne 0 ]; then
-            echo "::error title=Flutter Build Failed::Debug APK Build failed with code $BUILD_STATUS"
-            echo "--- RELEVANT ERRORS FROM LOG ---"
-            grep -i -E "error|exception|failure|what went wrong" -C 4 build_debug.log | tail -n 80
-            echo "--- LAST 60 LINES OF LOG ---"
-            tail -n 60 build_debug.log
-            exit $BUILD_STATUS
-          fi
+          exit $BUILD_STATUS
+
+      - name: Upload Build Log on Failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-debug-log
+          path: build_debug.log
 
       - name: Build Release APK
         run: flutter build apk --release
