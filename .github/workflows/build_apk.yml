@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Flutter APK
@@ -35,22 +38,11 @@ jobs:
       - name: Run Unit Tests
         run: flutter test
 
-      - name: Build Debug APK
-        run: |
-          set +e
-          flutter build apk --debug -v > build_debug.log 2>&1
-          BUILD_STATUS=$?
-          exit $BUILD_STATUS
-
-      - name: Upload Build Log on Failure
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-debug-log
-          path: build_debug.log
-
       - name: Build Release APK
         run: flutter build apk --release
+
+      - name: Build Debug APK
+        run: flutter build apk --debug
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
@@ -64,3 +56,30 @@ jobs:
         with:
           name: flat-expense-manager-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "Flat Expense Manager v1.0.0"
+          body: |
+            ### Flat Expense Manager – Local Wi-Fi Sharing Android App
+            
+            - **app-release.apk**: Release build optimized for Android devices.
+            - **app-debug.apk**: Debug build with full logs.
+            
+            **Highlights:**
+            - 100% Offline & Local SQLite storage.
+            - Direct peer-to-peer Wi-Fi synchronization & QR code pairing.
+            - Equal/custom/percentage expense splits & debt minimization algorithm.
+            - Shared shopping list with atomic expense conversion.
+            - Separate income & contribution tracking.
+            - JSON backup and restore.
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
