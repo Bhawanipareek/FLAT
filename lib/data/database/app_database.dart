@@ -30,6 +30,13 @@ class AppDatabase {
       onCreate: (db, version) async {
         await _createDb(db);
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(DatabaseTables.createSalaryProfileTable);
+          await db.execute(DatabaseTables.createAttendanceTable);
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_attendance_date ON ${DatabaseTables.tableAttendance}(date);');
+        }
+      },
     );
   }
 
@@ -44,6 +51,8 @@ class AppDatabase {
     batch.execute(DatabaseTables.createContributionsTable);
     batch.execute(DatabaseTables.createSettlementsTable);
     batch.execute(DatabaseTables.createSyncLogsTable);
+    batch.execute(DatabaseTables.createSalaryProfileTable);
+    batch.execute(DatabaseTables.createAttendanceTable);
 
     // Performance Indices
     batch.execute('CREATE INDEX idx_members_group ON ${DatabaseTables.tableMembers}(group_id);');
@@ -54,6 +63,7 @@ class AppDatabase {
     batch.execute('CREATE INDEX idx_contributions_group ON ${DatabaseTables.tableContributions}(group_id);');
     batch.execute('CREATE INDEX idx_settlements_group ON ${DatabaseTables.tableSettlements}(group_id);');
     batch.execute('CREATE INDEX idx_sync_logs_group ON ${DatabaseTables.tableSyncLogs}(group_id, timestamp);');
+    batch.execute('CREATE INDEX idx_attendance_date ON ${DatabaseTables.tableAttendance}(date);');
 
     await batch.commit(noResult: true);
   }

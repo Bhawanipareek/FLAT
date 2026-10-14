@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'expenses/expenses_list_screen.dart';
 import 'group/group_details_screen.dart';
 import 'home/home_dashboard_screen.dart';
+import 'salary/salary_attendance_screen.dart';
 import 'settings/settings_screen.dart';
 import 'shopping/shopping_list_screen.dart';
 
@@ -26,13 +27,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final screens = [
       HomeDashboardScreen(
         onNavigateToExpenses: () => _navigateToIndex(1),
-        onNavigateToShopping: () => _navigateToIndex(2),
-        onNavigateToGroup: () => _navigateToIndex(3),
+        onNavigateToShopping: () => _navigateToIndex(3),
+        onNavigateToGroup: () => _navigateToIndex(4),
       ),
       const ExpensesListScreen(),
+      const SalaryAttendanceScreen(),
       const ShoppingListScreen(),
       const GroupDetailsScreen(),
-      const SettingsScreen(),
     ];
 
     return Scaffold(
@@ -55,6 +56,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             label: 'Expenses',
           ),
           NavigationDestination(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+            label: 'Salary',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.shopping_bag_outlined),
             selectedIcon: Icon(Icons.shopping_bag_rounded),
             label: 'Shopping',
@@ -63,11 +69,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             icon: Icon(Icons.group_outlined),
             selectedIcon: Icon(Icons.group_rounded),
             label: 'Group',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
           ),
         ],
       ),

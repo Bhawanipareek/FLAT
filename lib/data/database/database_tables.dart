@@ -7,6 +7,8 @@ class DatabaseTables {
   static const String tableContributions = 'contributions';
   static const String tableSettlements = 'settlements';
   static const String tableSyncLogs = 'sync_logs';
+  static const String tableSalaryProfile = 'salary_profile';
+  static const String tableAttendance = 'attendance_records';
 
   static const String createGroupsTable = '''
     CREATE TABLE $tableGroups (
@@ -140,6 +142,29 @@ class DatabaseTables {
       payload_json TEXT NOT NULL,
       timestamp TEXT NOT NULL,
       synced_with_peers INTEGER NOT NULL DEFAULT 0
+    );
+  ''';
+
+  static const String createSalaryProfileTable = '''
+    CREATE TABLE $tableSalaryProfile (
+      id TEXT PRIMARY KEY,
+      gross_salary REAL NOT NULL DEFAULT 0.0,
+      fixed_deductions REAL NOT NULL DEFAULT 0.0,
+      monthly_paid_leaves REAL NOT NULL DEFAULT 1.5,
+      work_days_per_week INTEGER NOT NULL DEFAULT 5,
+      sandwich_rule_enabled INTEGER NOT NULL DEFAULT 1,
+      deduction_basis TEXT NOT NULL DEFAULT 'calendar_days',
+      updated_at TEXT NOT NULL
+    );
+  ''';
+
+  static const String createAttendanceTable = '''
+    CREATE TABLE $tableAttendance (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'full_day',
+      notes TEXT,
+      updated_at TEXT NOT NULL
     );
   ''';
 }

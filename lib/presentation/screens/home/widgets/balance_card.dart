@@ -4,12 +4,18 @@ import '../../../../core/utils/currency_formatter.dart';
 
 class BalanceCard extends StatelessWidget {
   final double netBalance;
+  final double toReceive;
+  final double toPay;
+  final double personalSpent;
   final String currency;
   final VoidCallback onSettleTap;
 
   const BalanceCard({
     super.key,
     required this.netBalance,
+    this.toReceive = 0.0,
+    this.toPay = 0.0,
+    this.personalSpent = 0.0,
     this.currency = '₹',
     required this.onSettleTap,
   });
@@ -18,7 +24,6 @@ class BalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPositive = netBalance > 0.01;
     final isNegative = netBalance < -0.01;
-    final isSettled = !isPositive && !isNegative;
 
     final badgeColor = isPositive
         ? AppColors.success
@@ -26,11 +31,10 @@ class BalanceCard extends StatelessWidget {
             ? AppColors.error
             : AppColors.primary;
 
-    final badgeBg = badgeColor.withOpacity(0.12);
     final statusText = isPositive
-        ? 'You will receive'
+        ? 'Total: You will receive (Aana Hai)'
         : isNegative
-            ? 'You owe'
+            ? 'Total: You owe (Dena Hai)'
             : 'All settled up';
 
     return Container(
@@ -39,9 +43,9 @@ class BalanceCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isPositive
-              ? [const Color(0xFF059669), const Color(0xFF10B981)]
+              ? [const Color(0xFF047857), const Color(0xFF10B981)]
               : isNegative
-                  ? [const Color(0xFFDC2626), const Color(0xFFEF4444)]
+                  ? [const Color(0xFFB91C1C), const Color(0xFFEF4444)]
                   : [const Color(0xFF0F766E), const Color(0xFF14B8A6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -104,7 +108,7 @@ class BalanceCard extends StatelessWidget {
                       Icon(Icons.handshake_outlined, size: 14, color: badgeColor),
                       const SizedBox(width: 4),
                       Text(
-                        'Settle Up',
+                        'Hisab Chukta',
                         style: TextStyle(
                           color: badgeColor,
                           fontWeight: FontWeight.w700,
@@ -117,9 +121,10 @@ class BalanceCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
-            CurrencyFormatter.format(netBalance.abs(), symbol: currency),
+            (netBalance >= 0 ? '+ ' : '- ') +
+                CurrencyFormatter.format(netBalance.abs(), symbol: currency),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -130,17 +135,85 @@ class BalanceCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             isPositive
-                ? 'Your flatmates owe you this amount'
+                ? 'Flatmates se itna paisa aana hai'
                 : isNegative
-                    ? 'You need to pay your flatmates'
-                    : 'No pending balances for you',
+                    ? 'Flatmates ko itna paisa dena hai'
+                    : 'Hisab barabar hai',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.85),
+              color: Colors.white.withOpacity(0.9),
               fontSize: 13,
             ),
           ),
+          const Divider(color: Colors.white24, height: 24),
+          // 3-way breakdown: Kitna Aana Hai | Kitna Jana Hai | Personal Kharcha
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _MiniMetric(
+                label: 'Kitna Aana H',
+                amount: toReceive,
+                currency: currency,
+                color: Colors.white,
+                prefix: '+',
+              ),
+              _MiniMetric(
+                label: 'Kitna Jana H',
+                amount: toPay,
+                currency: currency,
+                color: Colors.yellowAccent,
+                prefix: '-',
+              ),
+              _MiniMetric(
+                label: 'Niji Kharcha',
+                amount: personalSpent,
+                currency: currency,
+                color: Colors.white70,
+                prefix: '',
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  final String label;
+  final double amount;
+  final String currency;
+  final Color color;
+  final String prefix;
+
+  const _MiniMetric({
+    required this.label,
+    required this.amount,
+    required this.currency,
+    required this.color,
+    required this.prefix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Colors.white70),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          amount > 0
+              ? '$prefix${CurrencyFormatter.format(amount, symbol: currency)}'
+              : '$currency 0',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -37,6 +37,8 @@ class ExpenseModel {
     this.splits = const [],
   });
 
+  bool get isPersonal => splitMethod == 'personal';
+
   ExpenseModel copyWith({
     String? id,
     String? groupId,

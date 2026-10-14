@@ -11,7 +11,7 @@ class AppConstants {
 
   // Database
   static const String databaseName = 'flat_expense_manager.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 2;
 
   // Defaults
   static const String defaultCurrency = '₹';

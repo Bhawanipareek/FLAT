@@ -24,6 +24,8 @@ class P2pSyncManager extends ChangeNotifier {
   DateTime? _lastSyncTime;
   String? _localIp;
   Timer? _autoSyncTimer;
+  bool _isSyncingInProgress = false;
+  final StreamController<int> _dataChangedController = StreamController<int>.broadcast();
   final List<PeerDeviceInfo> _knownPeers = [];
 
   P2pSyncManager({
@@ -48,6 +50,7 @@ class P2pSyncManager extends ChangeNotifier {
   String? get localIp => _localIp;
   int get serverPort => _server.port;
   List<PeerDeviceInfo> get knownPeers => List.unmodifiable(_knownPeers);
+  Stream<int> get onDataChanged => _dataChangedController.stream;
 
   /// Initializes local server and loads network IP
   Future<void> initialize({
@@ -82,7 +85,8 @@ class P2pSyncManager extends ChangeNotifier {
 
   void startAutoSync(String groupId) {
     _autoSyncTimer?.cancel();
-    _autoSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Real-time synchronization every 2 seconds across flatmate devices on Wi-Fi
+    _autoSyncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       syncNow(groupId);
     });
   }
@@ -104,87 +108,97 @@ class P2pSyncManager extends ChangeNotifier {
 
   /// Triggers immediate 2-way incremental sync with all known peers
   Future<void> syncNow(String groupId) async {
-    final group = await _groupRepository.getGroupById(groupId);
-    if (group == null) {
-      _status = SyncStatus.offline;
-      _statusMessage = 'No active group found';
+    if (_isSyncingInProgress) return;
+    _isSyncingInProgress = true;
+
+    try {
+      final group = await _groupRepository.getGroupById(groupId);
+      if (group == null) {
+        _status = SyncStatus.offline;
+        _statusMessage = 'No active group found';
+        notifyListeners();
+        return;
+      }
+
+      _localIp = await _networkDiscovery.getLocalIpAddress();
+      if (_localIp == null) {
+        _status = SyncStatus.offline;
+        _statusMessage = 'Device is offline. Connect to Wi-Fi to sync.';
+        notifyListeners();
+        return;
+      }
+
+      if (_knownPeers.isEmpty) {
+        _status = SyncStatus.connected;
+        _statusMessage = 'Ready to sync. Pair with a flatmate over Wi-Fi.';
+        notifyListeners();
+        return;
+      }
+
+      _status = SyncStatus.syncing;
+      _statusMessage = 'Syncing with flatmate devices...';
       notifyListeners();
-      return;
-    }
 
-    _localIp = await _networkDiscovery.getLocalIpAddress();
-    if (_localIp == null) {
-      _status = SyncStatus.offline;
-      _statusMessage = 'Device is offline. Connect to Wi-Fi to sync.';
-      notifyListeners();
-      return;
-    }
+      int totalApplied = 0;
+      bool anySuccess = false;
+      String? lastError;
 
-    if (_knownPeers.isEmpty) {
-      _status = SyncStatus.connected;
-      _statusMessage = 'Ready to sync. Pair with a flatmate over Wi-Fi.';
-      notifyListeners();
-      return;
-    }
+      final myDeviceId = _prefs.currentUserId ?? 'unknown_device';
+      final myMemberId = _prefs.currentUserId ?? 'unknown_member';
 
-    _status = SyncStatus.syncing;
-    _statusMessage = 'Syncing with flatmate devices...';
-    notifyListeners();
+      for (final peer in List<PeerDeviceInfo>.from(_knownPeers)) {
+        try {
+          // 1. Fetch pending local changes to push
+          final pendingLogs = await _syncRepository.getChangesSince(groupId, _lastSyncTime);
+          if (pendingLogs.isNotEmpty) {
+            final pushReq = SyncPushRequest(
+              groupId: groupId,
+              pairingToken: group.pairingSecret,
+              senderDeviceId: myDeviceId,
+              senderMemberId: myMemberId,
+              logs: pendingLogs,
+            );
+            await _client.pushChanges(ip: peer.ip, port: peer.port, pushRequest: pushReq);
+          }
 
-    int totalApplied = 0;
-    bool anySuccess = false;
-    String? lastError;
-
-    final myDeviceId = _prefs.currentUserId ?? 'unknown_device';
-    final myMemberId = _prefs.currentUserId ?? 'unknown_member';
-
-    for (final peer in List<PeerDeviceInfo>.from(_knownPeers)) {
-      try {
-        // 1. Fetch pending local changes to push
-        final pendingLogs = await _syncRepository.getChangesSince(groupId, _lastSyncTime);
-        if (pendingLogs.isNotEmpty) {
-          final pushReq = SyncPushRequest(
+          // 2. Pull latest peer changes
+          final pullReq = SyncPullRequest(
             groupId: groupId,
             pairingToken: group.pairingSecret,
-            senderDeviceId: myDeviceId,
-            senderMemberId: myMemberId,
-            logs: pendingLogs,
+            sinceTimestamp: _lastSyncTime,
           );
-          await _client.pushChanges(ip: peer.ip, port: peer.port, pushRequest: pushReq);
+          final incomingLogs = await _client.pullChanges(ip: peer.ip, port: peer.port, pullRequest: pullReq);
+
+          if (incomingLogs.isNotEmpty) {
+            final applied = await _syncRepository.ingestPeerChanges(groupId: groupId, peerLogs: incomingLogs);
+            totalApplied += applied;
+          }
+
+          anySuccess = true;
+          addOrUpdatePeer(peer.copyWith(lastSeen: DateTime.now()));
+        } catch (e) {
+          lastError = e.toString();
         }
-
-        // 2. Pull latest peer changes
-        final pullReq = SyncPullRequest(
-          groupId: groupId,
-          pairingToken: group.pairingSecret,
-          sinceTimestamp: _lastSyncTime,
-        );
-        final incomingLogs = await _client.pullChanges(ip: peer.ip, port: peer.port, pullRequest: pullReq);
-
-        if (incomingLogs.isNotEmpty) {
-          final applied = await _syncRepository.ingestPeerChanges(groupId: groupId, peerLogs: incomingLogs);
-          totalApplied += applied;
-        }
-
-        anySuccess = true;
-        addOrUpdatePeer(peer.copyWith(lastSeen: DateTime.now()));
-      } catch (e) {
-        lastError = e.toString();
       }
-    }
 
-    if (anySuccess) {
-      _lastSyncTime = DateTime.now();
-      await _prefs.setLastSyncTime(_lastSyncTime!);
-      await _syncRepository.markChangesSynced(groupId, _lastSyncTime!);
-      _status = SyncStatus.connected;
-      _statusMessage = 'Synced successfully ($totalApplied changes applied)';
-    } else {
-      _status = SyncStatus.syncFailed;
-      _statusMessage = lastError ?? 'Failed to reach flatmate phones on Wi-Fi';
-    }
+      if (anySuccess) {
+        _lastSyncTime = DateTime.now();
+        await _prefs.setLastSyncTime(_lastSyncTime!);
+        await _syncRepository.markChangesSynced(groupId, _lastSyncTime!);
+        _status = SyncStatus.connected;
+        _statusMessage = 'Synced ($totalApplied changes received)';
+        if (totalApplied > 0) {
+          _dataChangedController.add(totalApplied);
+        }
+      } else {
+        _status = SyncStatus.syncFailed;
+        _statusMessage = lastError ?? 'Failed to reach flatmate phones on Wi-Fi';
+      }
 
-    notifyListeners();
+      notifyListeners();
+    } finally {
+      _isSyncingInProgress = false;
+    }
   }
 
   /// Pair with host device using QR Payload

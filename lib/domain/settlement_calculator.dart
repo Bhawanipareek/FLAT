@@ -24,6 +24,10 @@ class SettlementCalculationResult {
   final double currentUserNetBalance;
   final double currentUserTotalPaid;
   final double currentUserTotalShare;
+  final double currentUserToReceive;
+  final double currentUserToPay;
+  final double currentUserPersonalExpense;
+  final double totalSharedGroupExpense;
 
   SettlementCalculationResult({
     required this.memberBalances,
@@ -32,6 +36,10 @@ class SettlementCalculationResult {
     required this.currentUserNetBalance,
     required this.currentUserTotalPaid,
     required this.currentUserTotalShare,
+    this.currentUserToReceive = 0.0,
+    this.currentUserToPay = 0.0,
+    this.currentUserPersonalExpense = 0.0,
+    this.totalSharedGroupExpense = 0.0,
   });
 }
 
@@ -108,6 +116,30 @@ class SettlementCalculator {
 
     final currentUserNetBalance = balances[currentUserId] ?? 0.0;
 
+    double currentUserToReceive = 0.0;
+    double currentUserToPay = 0.0;
+    for (final transfer in suggestedTransfers) {
+      if (transfer.toMemberId == currentUserId) {
+        currentUserToReceive += transfer.amount;
+      }
+      if (transfer.fromMemberId == currentUserId) {
+        currentUserToPay += transfer.amount;
+      }
+    }
+
+    double currentUserPersonalExpense = 0.0;
+    double totalSharedGroupExpense = 0.0;
+    for (final expense in expenses) {
+      if (expense.isDeleted) continue;
+      if (expense.isPersonal) {
+        if (expense.payerMemberId == currentUserId) {
+          currentUserPersonalExpense += expense.amount;
+        }
+      } else {
+        totalSharedGroupExpense += expense.amount;
+      }
+    }
+
     return SettlementCalculationResult(
       memberBalances: balances,
       suggestedTransfers: suggestedTransfers,
@@ -115,6 +147,10 @@ class SettlementCalculator {
       currentUserNetBalance: currentUserNetBalance,
       currentUserTotalPaid: currentUserTotalPaid,
       currentUserTotalShare: currentUserTotalShare,
+      currentUserToReceive: currentUserToReceive,
+      currentUserToPay: currentUserToPay,
+      currentUserPersonalExpense: currentUserPersonalExpense,
+      totalSharedGroupExpense: totalSharedGroupExpense,
     );
   }
 

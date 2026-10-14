@@ -5,6 +5,7 @@ import 'data/services/preferences_service.dart';
 import 'presentation/providers/app_state_provider.dart';
 import 'presentation/providers/contributions_provider.dart';
 import 'presentation/providers/expenses_provider.dart';
+import 'presentation/providers/salary_provider.dart';
 import 'presentation/providers/settlement_provider.dart';
 import 'presentation/providers/shopping_provider.dart';
 import 'presentation/screens/main_navigation_screen.dart';
@@ -37,6 +38,9 @@ void main() async {
         ChangeNotifierProvider(
           create: (_) => SettlementProvider(syncManager: syncManager),
         ),
+        ChangeNotifierProvider(
+          create: (_) => SalaryProvider()..loadData(),
+        ),
       ],
       child: const FlatExpenseApp(),
     ),
@@ -57,6 +61,12 @@ class _FlatExpenseAppState extends State<FlatExpenseApp> {
     // After initial load, trigger loading for all active group data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadGroupData();
+      final syncManager = context.read<AppStateProvider>().syncManager;
+      syncManager.onDataChanged.listen((_) {
+        if (mounted) {
+          _loadGroupData();
+        }
+      });
     });
   }
 

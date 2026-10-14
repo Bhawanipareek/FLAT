@@ -32,7 +32,8 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
   String? _selectedPayerId;
-  String _splitMethod = 'equal'; // 'equal', 'custom', 'percentage'
+  String _splitMethod = 'equal'; // 'equal', 'custom', 'percentage', 'personal'
+  bool _isPersonal = false;
 
   final Set<String> _selectedMemberIds = {};
   final Map<String, TextEditingController> _customControllers = {};
@@ -56,6 +57,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
         : TimeOfDay.now();
     _selectedPayerId = expense?.payerMemberId;
     _splitMethod = expense?.splitMethod ?? 'equal';
+    _isPersonal = expense?.splitMethod == 'personal';
     _receiptImagePath = expense?.receiptImagePath;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -122,6 +124,20 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     final now = DateTime.now();
     final splits = <ExpenseSplitModel>[];
 
+    if (_isPersonal) {
+      final payerId = _selectedPayerId ?? '';
+      splits.add(ExpenseSplitModel(
+        id: IdGenerator.generateId(),
+        expenseId: expenseId,
+        memberId: payerId,
+        allocatedAmount: totalAmount,
+        allocatedPercentage: 100.0,
+        createdAt: now,
+        updatedAt: now,
+      ));
+      return splits;
+    }
+
     if (_splitMethod == 'equal') {
       final share = totalAmount / _selectedMemberIds.length;
       final pct = 100.0 / _selectedMemberIds.length;
@@ -180,41 +196,43 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
       return;
     }
 
-    if (_selectedMemberIds.isEmpty) {
+    if (!_isPersonal && _selectedMemberIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Select at least one member to share the expense')),
       );
       return;
     }
 
-    // Validate custom / percentage sums
-    if (_splitMethod == 'custom') {
-      double customSum = 0.0;
-      for (final mId in _selectedMemberIds) {
-        customSum += double.tryParse(_customControllers[mId]?.text ?? '0') ?? 0.0;
-      }
-      if ((customSum - totalAmount).abs() > 0.05) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Custom amounts sum (₹${customSum.toStringAsFixed(2)}) does not match total (₹${totalAmount.toStringAsFixed(2)})',
+    // Validate custom / percentage sums only for shared expenses
+    if (!_isPersonal) {
+      if (_splitMethod == 'custom') {
+        double customSum = 0.0;
+        for (final mId in _selectedMemberIds) {
+          customSum += double.tryParse(_customControllers[mId]?.text ?? '0') ?? 0.0;
+        }
+        if ((customSum - totalAmount).abs() > 0.05) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Custom amounts sum (₹${customSum.toStringAsFixed(2)}) does not match total (₹${totalAmount.toStringAsFixed(2)})',
+              ),
             ),
-          ),
-        );
-        return;
-      }
-    } else if (_splitMethod == 'percentage') {
-      double pctSum = 0.0;
-      for (final mId in _selectedMemberIds) {
-        pctSum += double.tryParse(_customControllers[mId]?.text ?? '0') ?? 0.0;
-      }
-      if ((pctSum - 100.0).abs() > 0.5) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Percentages sum (${pctSum.toStringAsFixed(1)}%) must equal 100%'),
-          ),
-        );
-        return;
+          );
+          return;
+        }
+      } else if (_splitMethod == 'percentage') {
+        double pctSum = 0.0;
+        for (final mId in _selectedMemberIds) {
+          pctSum += double.tryParse(_customControllers[mId]?.text ?? '0') ?? 0.0;
+        }
+        if ((pctSum - 100.0).abs() > 0.5) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Percentages sum (${pctSum.toStringAsFixed(1)}%) must equal 100%'),
+            ),
+          );
+          return;
+        }
       }
     }
 
@@ -427,91 +445,136 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                 setState(() => _selectedPayerId = val);
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Split Method Selector
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Split Between Members',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-                DropdownButton<String>(
-                  value: _splitMethod,
-                  underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(value: 'equal', child: Text('Equally')),
-                    DropdownMenuItem(value: 'custom', child: Text('Custom Amount')),
-                    DropdownMenuItem(value: 'percentage', child: Text('By Percentage')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _splitMethod = val;
-                        if (val == 'equal') {
-                          _calculateEqualSplits();
-                        }
-                      });
-                    }
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Members selection & shares
+            // Personal vs Shared Flat Expense Switch
             Card(
               margin: EdgeInsets.zero,
-              child: Column(
-                children: members.map((member) {
-                  final isIncluded = _selectedMemberIds.contains(member.id);
-                  if (!_customControllers.containsKey(member.id)) {
-                    _customControllers[member.id] = TextEditingController();
-                  }
-
-                  return CheckboxListTile(
-                    value: isIncluded,
-                    title: Text(member.isCurrentUser ? '${member.name} (You)' : member.name),
-                    secondary: Text(
-                      isIncluded
-                          ? _splitMethod == 'percentage'
-                              ? '% ${_customControllers[member.id]?.text ?? '0'}'
-                              : '$currency ${_customControllers[member.id]?.text ?? '0'}'
-                          : 'Excluded',
-                      style: TextStyle(
-                        color: isIncluded ? AppColors.primary : Colors.grey,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: isIncluded && _splitMethod != 'equal'
-                        ? TextFormField(
-                            controller: _customControllers[member.id],
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              hintText: _splitMethod == 'percentage' ? 'Percentage %' : 'Amount in $currency',
-                            ),
-                          )
-                        : null,
-                    onChanged: (checked) {
-                      setState(() {
-                        if (checked == true) {
-                          _selectedMemberIds.add(member.id);
-                        } else {
-                          _selectedMemberIds.remove(member.id);
-                        }
-                        if (_splitMethod == 'equal') {
-                          _calculateEqualSplits();
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
+              color: _isPersonal ? AppColors.secondary.withOpacity(0.08) : Colors.grey.shade50,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: _isPersonal ? AppColors.secondary : Colors.grey.shade300,
+                  width: _isPersonal ? 1.5 : 1,
+                ),
+              ),
+              child: SwitchListTile(
+                secondary: Icon(
+                  _isPersonal ? Icons.person_rounded : Icons.groups_rounded,
+                  color: _isPersonal ? AppColors.secondary : AppColors.primary,
+                ),
+                title: Text(
+                  _isPersonal ? 'Personal Expense (Mera Niji Kharcha)' : 'Flat Shared Expense (Flatmates Me Batega)',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                subtitle: Text(
+                  _isPersonal
+                      ? 'Sirf aapka kharcha hai — Flatmates ke hisab me nahi aayega.'
+                      : 'Flatmates ke beech hisab me divide hoga.',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                value: _isPersonal,
+                onChanged: (val) {
+                  setState(() {
+                    _isPersonal = val;
+                    _splitMethod = val ? 'personal' : 'equal';
+                    if (!val && _selectedMemberIds.isEmpty) {
+                      for (final m in members) {
+                        _selectedMemberIds.add(m.id);
+                      }
+                      _calculateEqualSplits();
+                    }
+                  });
+                },
               ),
             ),
             const SizedBox(height: 20),
+
+            if (!_isPersonal) ...[
+              // Split Method Selector
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Split Between Members',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                  DropdownButton<String>(
+                    value: _splitMethod == 'personal' ? 'equal' : _splitMethod,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(value: 'equal', child: Text('Equally')),
+                      DropdownMenuItem(value: 'custom', child: Text('Custom Amount')),
+                      DropdownMenuItem(value: 'percentage', child: Text('By Percentage')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _splitMethod = val;
+                          if (val == 'equal') {
+                            _calculateEqualSplits();
+                          }
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Members selection & shares
+              Card(
+                margin: EdgeInsets.zero,
+                child: Column(
+                  children: members.map((member) {
+                    final isIncluded = _selectedMemberIds.contains(member.id);
+                    if (!_customControllers.containsKey(member.id)) {
+                      _customControllers[member.id] = TextEditingController();
+                    }
+
+                    return CheckboxListTile(
+                      value: isIncluded,
+                      title: Text(member.isCurrentUser ? '${member.name} (You)' : member.name),
+                      secondary: Text(
+                        isIncluded
+                            ? _splitMethod == 'percentage'
+                                ? '% ${_customControllers[member.id]?.text ?? '0'}'
+                                : '$currency ${_customControllers[member.id]?.text ?? '0'}'
+                            : 'Excluded',
+                        style: TextStyle(
+                          color: isIncluded ? AppColors.primary : Colors.grey,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: isIncluded && _splitMethod != 'equal'
+                          ? TextFormField(
+                              controller: _customControllers[member.id],
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                hintText: _splitMethod == 'percentage' ? 'Percentage %' : 'Amount in $currency',
+                              ),
+                            )
+                          : null,
+                      onChanged: (checked) {
+                        setState(() {
+                          if (checked == true) {
+                            _selectedMemberIds.add(member.id);
+                          } else {
+                            _selectedMemberIds.remove(member.id);
+                          }
+                          if (_splitMethod == 'equal') {
+                            _calculateEqualSplits();
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
 
             // Notes
             TextFormField(

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../data/models/member_model.dart';
 import '../../providers/app_state_provider.dart';
 import '../../providers/contributions_provider.dart';
 import '../../providers/expenses_provider.dart';
@@ -17,6 +18,7 @@ import '../expenses/add_edit_expense_screen.dart';
 import '../expenses/expense_detail_screen.dart';
 import '../group/create_group_screen.dart';
 import '../group/qr_scan_screen.dart';
+import '../salary/salary_attendance_screen.dart';
 import '../settlements/settlements_screen.dart';
 import '../shopping/add_edit_shopping_item_screen.dart';
 import 'widgets/balance_card.dart';
@@ -116,7 +118,11 @@ class HomeDashboardScreen extends StatelessWidget {
 
     final currency = activeGroup.currency;
     final currentUserId = appState.currentUserId ?? '';
-    final netBalance = settlementProv.calculationResult?.currentUserNetBalance ?? 0.0;
+    final calcResult = settlementProv.calculationResult;
+    final netBalance = calcResult?.currentUserNetBalance ?? 0.0;
+    final toReceive = calcResult?.currentUserToReceive ?? 0.0;
+    final toPay = calcResult?.currentUserToPay ?? 0.0;
+    final personalSpent = calcResult?.currentUserPersonalExpense ?? 0.0;
     final totalMonthly = expensesProv.totalMonthlyExpenses;
     final userPaid = expensesProv.currentUserPaid(currentUserId);
     final othersPaid = expensesProv.otherMembersPaid(currentUserId);
@@ -205,9 +211,12 @@ class HomeDashboardScreen extends StatelessWidget {
               ),
             ),
 
-            // Balance Card
+            // Balance Card (Shows Net, Kitna Aana H, Kitna Jana H, and Personal)
             BalanceCard(
               netBalance: netBalance,
+              toReceive: toReceive,
+              toPay: toPay,
+              personalSpent: personalSpent,
               currency: currency,
               onSettleTap: () {
                 Navigator.push(
@@ -215,6 +224,161 @@ class HomeDashboardScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const SettlementsScreen()),
                 );
               },
+            ),
+
+            // Kisko Kitne Paise Dene Hai (Who Owes Whom in the Flat Group)
+            if (calcResult != null && calcResult.suggestedTransfers.isNotEmpty)
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.compare_arrows_rounded, color: AppColors.primary, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Kisko Kitne Paise Dene Hai',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const SettlementsScreen()),
+                              );
+                            },
+                            child: const Text('Hisab Chukta', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...calcResult.suggestedTransfers.map((t) {
+                        final fromMember = appState.members.firstWhere(
+                          (m) => m.id == t.fromMemberId,
+                          orElse: () => MemberModel(
+                            id: t.fromMemberId,
+                            groupId: activeGroup.id,
+                            name: 'Flatmate',
+                            joinedAt: DateTime.now(),
+                            updatedAt: DateTime.now(),
+                          ),
+                        );
+                        final toMember = appState.members.firstWhere(
+                          (m) => m.id == t.toMemberId,
+                          orElse: () => MemberModel(
+                            id: t.toMemberId,
+                            groupId: activeGroup.id,
+                            name: 'Flatmate',
+                            joinedAt: DateTime.now(),
+                            updatedAt: DateTime.now(),
+                          ),
+                        );
+                        final isMeFrom = t.fromMemberId == currentUserId;
+                        final isMeTo = t.toMemberId == currentUserId;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isMeFrom
+                                ? Colors.red.shade50
+                                : isMeTo
+                                    ? Colors.green.shade50
+                                    : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isMeFrom
+                                  ? Colors.red.shade200
+                                  : isMeTo
+                                      ? Colors.green.shade200
+                                      : Colors.grey.shade200,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    isMeFrom ? 'You' : fromMember.name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: isMeFrom ? AppColors.error : Colors.black87,
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 6),
+                                    child: Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.grey),
+                                  ),
+                                  Text(
+                                    isMeTo ? 'You' : toMember.name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: isMeTo ? AppColors.success : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                CurrencyFormatter.format(t.amount, symbol: currency),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  color: isMeFrom
+                                      ? AppColors.error
+                                      : isMeTo
+                                          ? AppColors.success
+                                          : AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Salary & Attendance Banner Card
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              elevation: 0,
+              color: Colors.blue.shade50,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.blue.shade200),
+              ),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Colors.blue,
+                  child: Icon(Icons.account_balance_wallet_rounded, color: Colors.white),
+                ),
+                title: const Text(
+                  'Salary & Haziri Calculator',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+                subtitle: const Text(
+                  'Kul Salary, In-Hand, Chuttiya, Half Day aur Sandwich Leave hisab',
+                  style: TextStyle(fontSize: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded, color: Colors.blue),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SalaryAttendanceScreen()),
+                  );
+                },
+              ),
             ),
 
             // Monthly Summary Card

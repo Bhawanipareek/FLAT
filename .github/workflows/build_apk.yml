@@ -63,21 +63,20 @@ jobs:
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1
-          name: "Flat Expense Manager v1.0.1"
+          tag_name: v1.0.2
+          name: "Flat Expense Manager v1.0.2"
           body: |
-            ### Flat Expense Manager – Local Wi-Fi Sharing Android App
+            ### Flat Expense Manager – Local Wi-Fi Sharing Android App (v1.0.2)
             
-            - **app-release.apk**: Release build optimized for Android devices.
-            - **app-debug.apk**: Debug build with full logs.
+            - **app-release.apk**: Production Release APK for Android.
+            - **app-debug.apk**: Debug APK.
             
-            **Highlights:**
-            - 100% Offline & Local SQLite storage.
-            - Direct peer-to-peer Wi-Fi synchronization & QR code pairing.
-            - Equal/custom/percentage expense splits & debt minimization algorithm.
-            - Shared shopping list with atomic expense conversion.
-            - Separate income & contribution tracking.
-            - JSON backup and restore.
+            **What's New in v1.0.2:**
+            - 🔒 **Personal Expense Tracking**: Track your own private expenses (Mera Niji Kharcha) without splitting with flatmates.
+            - 💳 **Kitna Aana Hai & Kitna Jana Hai**: Real-time balance breakdown directly on the dashboard.
+            - 👥 **Flat Debt Matrix (Kisko Kitne Paise Dene Hai)**: Full transparency showing who owes whom how much with 1-tap settlement.
+            - 💼 **Salary & Haziri Calculator**: Gross CTC, In-Hand calculation, daily attendance (Full Day / Half Day / Leaves), and Sandwich Leave Policy enforcement.
+            - ⚡ **2-Second Real-Time Auto Sync**: Immediate peer-to-peer sync between flatmates' phones on the same Wi-Fi.
           files: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/flutter-apk/app-debug.apk

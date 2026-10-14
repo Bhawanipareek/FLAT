@@ -5,6 +5,7 @@ import '../../../core/utils/date_time_utils.dart';
 import '../../providers/app_state_provider.dart';
 import '../../widgets/member_avatar.dart';
 import '../../widgets/sync_status_indicator.dart';
+import '../settings/settings_screen.dart';
 import 'create_group_screen.dart';
 import 'qr_scan_screen.dart';
 import 'qr_share_screen.dart';
@@ -51,6 +52,16 @@ class GroupDetailsScreen extends StatelessWidget {
             tooltip: 'Sync Now',
             icon: const Icon(Icons.sync_rounded),
             onPressed: () => syncManager.syncNow(activeGroup.id),
+          ),
+          IconButton(
+            tooltip: 'Settings & Profile',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
           ),
         ],
       ),
