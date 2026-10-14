@@ -237,7 +237,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     try {
       await expensesProv.saveExpense(
         groupId: appState.activeGroup!.id,
-        existingId: widget.existingExpense?.id,
+        existingId: expenseId,
         title: _titleController.text.trim(),
         amount: totalAmount,
         category: _selectedCategory,

@@ -88,7 +88,8 @@ class ExpensesProvider extends ChangeNotifier {
     required String currentUserId,
   }) async {
     final now = DateTime.now();
-    final expenseId = existingId ?? IdGenerator.generateId();
+    final expenseId = existingId ?? (splits.isNotEmpty ? splits.first.expenseId : IdGenerator.generateId());
+    final normalizedSplits = splits.map((s) => s.copyWith(expenseId: expenseId)).toList();
 
     final expense = ExpenseModel(
       id: expenseId,
@@ -99,7 +100,7 @@ class ExpensesProvider extends ChangeNotifier {
       purchaseDate: purchaseDate,
       payerMemberId: payerMemberId,
       splitMethod: splitMethod,
-      splits: splits,
+      splits: normalizedSplits,
       notes: notes,
       receiptImagePath: receiptImagePath,
       shoppingItemId: shoppingItemId,

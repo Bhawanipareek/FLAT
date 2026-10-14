@@ -37,9 +37,12 @@ class ExpenseRepository {
     );
 
     for (final split in expense.splits) {
+      final safeSplit = split.expenseId == expense.id
+          ? split
+          : split.copyWith(expenseId: expense.id);
       await executor.insert(
         DatabaseTables.tableExpenseSplits,
-        split.toMap(),
+        safeSplit.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
