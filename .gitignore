@@ -1,3 +1,17 @@
+# React Native / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# Scratch & Local Files
+scratch/
+test_hisab_logic.ts
+
+# Legacy Flutter Backup
+legacy_flutter/
+FlatExpenseManager.apk
 *.apk
 *.aab
 build/
@@ -5,3 +19,7 @@ build/
 .gradle/
 local.properties
 *.log
+
+# OS & Secrets
+.DS_Store
+Thumbs.db

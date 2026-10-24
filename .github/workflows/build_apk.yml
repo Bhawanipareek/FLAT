@@ -12,12 +12,18 @@ permissions:
 
 jobs:
   build:
-    name: Build Flutter APK
+    name: Build Hisab OS APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
 
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
@@ -25,37 +31,43 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.x'
-          channel: 'stable'
-          cache: true
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Install Dependencies
-        run: flutter pub get
+        run: npm install
 
-      - name: Run Unit Tests
-        run: flutter test
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Prebuild Native Android
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Make Gradle executable
+        run: chmod +x android/gradlew
 
       - name: Build Release APK
-        run: flutter build apk --release
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon
 
       - name: Build Debug APK
-        run: flutter build apk --debug
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flat-expense-manager-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: hisab-os-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flat-expense-manager-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: hisab-os-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -63,22 +75,25 @@ jobs:
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.2
-          name: "Flat Expense Manager v1.0.2"
+          tag_name: v1.0.3
+          name: "Hisab OS v1.0.3"
           body: |
-            ### Flat Expense Manager – Local Wi-Fi Sharing Android App (v1.0.2)
+            ### Hisab OS — Your Money. Your Life. In One Place. (v1.0.3)
             
-            - **app-release.apk**: Production Release APK for Android.
+            - **app-release.apk**: Production Release APK for Android (Fully Offline & Private).
             - **app-debug.apk**: Debug APK.
             
-            **What's New in v1.0.2:**
-            - 🔒 **Personal Expense Tracking**: Track your own private expenses (Mera Niji Kharcha) without splitting with flatmates.
-            - 💳 **Kitna Aana Hai & Kitna Jana Hai**: Real-time balance breakdown directly on the dashboard.
-            - 👥 **Flat Debt Matrix (Kisko Kitne Paise Dene Hai)**: Full transparency showing who owes whom how much with 1-tap settlement.
-            - 💼 **Salary & Haziri Calculator**: Gross CTC, In-Hand calculation, daily attendance (Full Day / Half Day / Leaves), and Sandwich Leave Policy enforcement.
-            - ⚡ **2-Second Real-Time Auto Sync**: Immediate peer-to-peer sync between flatmates' phones on the same Wi-Fi.
+            **What's Included:**
+            - 🔒 **100% Offline SQLite Architecture**: Zero backend, zero cloud, zero tracking, total financial privacy.
+            - 💳 **Cash & Multi-Bank Management**: Instant transfers between accounts with atomic SQLite transaction rollback safety.
+            - 📉 **Personal Spending**: Quick 1-tap presets (Chai, Snacks, Milk, Auto) + large purchases with warranty tracking.
+            - 🤝 **Udhar Management**: Strictly separated "I Gave" (to receive) vs "I Borrowed" (to pay) with partial repayment ledger.
+            - 🏍️ **Vehicles & Mileage**: Bikes, Scooters, Cars; fuel refuel logs with full-tank to full-tank exact mileage calculation.
+            - 🏠 **Rent & Household Bills**: Room rent, electricity, Wi-Fi, water bills with 1-tap account debit and duplicate prevention.
+            - 💼 **Office Attendance & Salary**: Base salary, in-hand calculation, attendance calendar, automatic unpaid leave deductions & overtime.
+            - 📊 **EMI & Financial Reports**: Amortisation schedules, monthly cash flows, net worth calculations, and offline JSON backup & restore.
           files: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/flutter-apk/app-debug.apk
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
