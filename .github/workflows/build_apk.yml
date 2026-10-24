@@ -43,13 +43,26 @@ jobs:
       - name: Build Release APK
         run: |
           cd android
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee ../build_release.log
+        continue-on-error: true
 
       - name: Build Debug APK
-        if: always()
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../build_debug.log
+        continue-on-error: true
+
+      - name: Output Build Logs
+        if: always()
+        run: |
+          echo "## Release Build Output (Last 100 lines)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          tail -n 100 build_release.log >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "## Debug Build Output (Last 100 lines)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          tail -n 100 build_debug.log >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Release APK Artifact
         if: always()
