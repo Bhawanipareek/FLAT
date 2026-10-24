@@ -43,26 +43,29 @@ jobs:
       - name: Build Release APK
         run: |
           cd android
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Build Debug APK
+        if: always()
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload Release APK Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hisab-os-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
 
       - name: Upload Debug APK Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hisab-os-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
 
       - name: Create GitHub Release
         if: github.ref == 'refs/heads/main'
@@ -87,7 +90,7 @@ jobs:
             - 💼 **Office Attendance & Salary**: Base salary, in-hand calculation, attendance calendar, automatic unpaid leave deductions & overtime.
             - 📊 **EMI & Financial Reports**: Amortisation schedules, monthly cash flows, net worth calculations, and offline JSON backup & restore.
           files: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
